@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { supabase } from "@/lib/supabase";
 
 // ============================================================
 // ICONS
@@ -308,6 +309,74 @@ export default function Home() {
         for await (const chunk of stream) { full += chunk; setAiOutput(full); }
       } catch (err: any) { setAiOutput(`오류: ${err.message}`); }
       setIsGenerating(false);
+
+        // Supabase에 자동 저장
+        try {
+          await fetch("/api/documents", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              user_email: currentUser.email,
+              user_name: currentUser.name,
+              document_type: activePrompt?.category || "general",
+              title: activePrompt?.title || "생성된 문서",
+              content: fullText,
+            }),
+          });
+        } catch (e) {
+          console.error("저장 실패:", e);
+        }
+
+        // Supabase에 자동 저장
+        try {
+          await fetch("/api/documents", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              user_email: currentUser.email,
+              user_name: currentUser.name,
+              document_type: activePrompt?.category || "general",
+              title: activePrompt?.title || "생성된 문서",
+              content: fullText,
+            }),
+          });
+        } catch (e) {
+          console.error("저장 실패:", e);
+        }
+
+        // Supabase에 자동 저장
+        try {
+          await fetch("/api/documents", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              user_email: currentUser.email,
+              user_name: currentUser.name,
+              document_type: activePrompt?.category || "general",
+              title: activePrompt?.title || "생성된 문서",
+              content: fullText,
+            }),
+          });
+        } catch (e) {
+          console.error("저장 실패:", e);
+        }
+
+        // Supabase에 자동 저장
+        try {
+          await fetch("/api/documents", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              user_email: currentUser.email,
+              user_name: currentUser.name,
+              document_type: activePrompt?.category || "general",
+              title: activePrompt?.title || "생성된 문서",
+              content: fullText,
+            }),
+          });
+        } catch (e) {
+          console.error("저장 실패:", e);
+        }
     };
 
     const handleSave = () => {
@@ -563,3 +632,7 @@ function LoginScreen({ onLogin }: { onLogin: (user: any) => void }) {
     </div>
   );
 }
+
+
+
+
