@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { mockDB } from "@/lib/mock-data";
+import { useState, useRef, useCallback } from "react";
 
 // ============================================================
 // ICONS
@@ -29,6 +28,60 @@ const Icons = {
   X: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
 };
 
+// ============================================================
+// IN-MEMORY DATABASE (샘플 데이터 포함)
+// ============================================================
+const initialData = {
+  users: [
+    { id: "u1", email: "student@test.com", role: "student", full_name: "김지원", created_at: new Date().toISOString() },
+    { id: "u2", email: "consultant@test.com", role: "consultant", full_name: "박상현 컨설턴트", created_at: new Date().toISOString() },
+  ],
+  consulting_requests: [
+    { id: "cr1", student_id: "u1", target_company: "삼성전자", job_description_url_or_text: "삼성전자 DX부문 소프트웨어 개발 직무. React/Node.js 경력 우대. 클라우드 서비스 개발 경험 필수.", status: "completed", created_at: "2025-02-15T09:00:00Z" },
+    { id: "cr2", student_id: "u1", target_company: "네이버", job_description_url_or_text: "네이버 검색 서비스 프론트엔드 개발. TypeScript, React, Next.js 필수. 대규모 트래픽 처리 경험 우대.", status: "in_progress", created_at: "2025-02-20T10:00:00Z" },
+    { id: "cr3", student_id: "u1", target_company: "카카오", job_description_url_or_text: "카카오 플랫폼 백엔드 개발. Java/Spring Boot, MSA 아키텍처 경험. Kubernetes 운영 경험 우대.", status: "pending", created_at: "2025-02-25T11:00:00Z" },
+    { id: "cr4", student_id: "u1", target_company: "LG CNS", job_description_url_or_text: "LG CNS 클라우드 엔지니어. AWS/Azure 자격증 보유자 우대. DevOps 파이프라인 구축 경험.", status: "pending", created_at: "2025-02-26T08:00:00Z" },
+    { id: "cr5", student_id: "u1", target_company: "SK하이닉스", job_description_url_or_text: "SK하이닉스 AI 반도체 설계. 머신러닝 모델 최적화 경험. Python, TensorFlow 필수.", status: "completed", created_at: "2025-01-10T09:00:00Z" },
+  ],
+  documents: [
+    { id: "d1", request_id: "cr1", file_url: "/resume.pdf", parsed_text: "김지원 이력서\n\n학력: 서울대학교 컴퓨터공학과 졸업 (2024)\nGPA: 3.8/4.5\n\n경력:\n- ABC 스타트업 프론트엔드 인턴 (6개월)\n  React, TypeScript 기반 대시보드 개발\n  성능 최적화로 LCP 40% 개선\n\n- DEF 연구소 연구보조 (1년)\n  NLP 기반 텍스트 분석 프로젝트\n\n기술스택: React, Next.js, TypeScript, Node.js, Python, AWS\n자격증: 정보처리기사, AWS Solutions Architect", document_type: "resume" },
+    { id: "d2", request_id: "cr2", file_url: "/portfolio.pdf", parsed_text: "김지원 포트폴리오\n\n프로젝트 1: AI 기반 뉴스 요약 서비스\n- Next.js + OpenAI API 활용\n- 월 5,000 MAU 달성\n\n프로젝트 2: 실시간 협업 도구\n- WebSocket 기반 실시간 동기화\n- React + Firebase 활용", document_type: "portfolio" },
+  ],
+  ai_prompts: [
+    { id: "ap1", category: "자기소개서", title: "IT 개발자 자소서 피드백", system_prompt: "당신은 10년 경력의 IT 기업 인사담당자입니다. 지원자의 자기소개서를 분석하고 다음 관점에서 피드백을 제공하세요:\n1. 직무 적합성 분석\n2. STAR 기법 활용도\n3. 구체적 성과/수치 포함 여부\n4. 개선 제안 (before/after 예시 포함)\n5. 전체 완성도 점수 (10점 만점)", created_by: "u2", created_at: new Date().toISOString() },
+    { id: "ap2", category: "모의면접", title: "IT 개발직 기술면접 질문 생성", system_prompt: "당신은 대기업 IT 개발팀의 기술면접관입니다. 지원자의 이력서와 채용공고를 분석하여 다음을 생성하세요:\n1. 기술 질문 5개 (난이도별)\n2. 인성/상황 질문 3개\n3. 각 질문의 의도 설명\n4. 모범 답변 가이드\n5. 압박질문 2개와 대처 전략", created_by: "u2", created_at: new Date().toISOString() },
+    { id: "ap3", category: "포트폴리오", title: "포트폴리오 분석 및 개선점", system_prompt: "당신은 시니어 개발자이자 채용 심사위원입니다. 지원자의 포트폴리오를 분석하고:\n1. 프로젝트 완성도 평가\n2. 기술 스택 적절성\n3. 문제 해결 능력 평가\n4. 부족한 부분 및 보완 제안\n5. 면접에서 강조할 포인트", created_by: "u2", created_at: new Date().toISOString() },
+    { id: "ap4", category: "직무기술서", title: "채용공고 기반 직무분석", system_prompt: "당신은 커리어 컨설턴트입니다. 채용공고를 분석하여:\n1. 핵심 요구 역량 추출\n2. 우대사항 중요도 순위\n3. 지원자 스펙과의 매칭률\n4. 준비해야 할 기술/경험\n5. 경쟁력 강화 전략", created_by: "u2", created_at: new Date().toISOString() },
+  ],
+  results: [
+    { id: "r1", request_id: "cr1", ai_draft: "", final_content: "# 삼성전자 DX부문 맞춤 컨설팅 보고서\n\n## 1. 직무 적합성 분석\n김지원 님은 React/Node.js 기반의 프론트엔드 개발 경험과 AWS 클라우드 경험을 갖추고 있어 삼성전자 DX부문 소프트웨어 개발 직무에 높은 적합성을 보입니다.\n\n## 2. 강점\n- LCP 40% 개선 등 구체적 성과 수치 보유\n- 정보처리기사, AWS SA 자격증\n- NLP 연구 경험으로 AI 트렌드 이해\n\n## 3. 면접 예상 질문\nQ1. React에서 성능 최적화를 위해 어떤 기법을 사용하셨나요?\nQ2. 대규모 트래픽 처리 경험에 대해 설명해주세요.\n\n## 4. 개선 제안\n- 클라우드 네이티브 프로젝트 경험 추가 권장\n- 삼성 SSAFY 또는 관련 프로그램 이수 이력 강조", updated_at: "2025-02-18T15:00:00Z" },
+    { id: "r2", request_id: "cr5", ai_draft: "", final_content: "# SK하이닉스 AI 반도체 설계 맞춤 컨설팅\n\n## 분석 결과\n현재 프로필은 소프트웨어 중심이므로 직접적 매칭률은 60%입니다.\n\n## 전략\n1. ML 모델 최적화 경험을 하드웨어 관점에서 재해석\n2. TensorFlow Lite, ONNX 등 엣지 AI 경험 강조", updated_at: "2025-01-15T12:00:00Z" },
+  ],
+};
+
+let _db: Record<string, any[]> = JSON.parse(JSON.stringify(initialData));
+let _idCounter = 200;
+const genId = () => `id_${++_idCounter}_${Date.now()}`;
+
+const mockDB = {
+  get: (table: string) => _db[table] || [],
+  query: (table: string, fn: (item: any) => boolean) => (_db[table] || []).filter(fn),
+  insert: (table: string, data: any) => {
+    const item = { id: genId(), ...data, created_at: data.created_at || new Date().toISOString() };
+    if (!_db[table]) _db[table] = [];
+    _db[table].push(item);
+    return item;
+  },
+  update: (table: string, id: string, data: any) => {
+    const arr = _db[table] || [];
+    const idx = arr.findIndex((x: any) => x.id === id);
+    if (idx >= 0) arr[idx] = { ...arr[idx], ...data };
+  },
+  delete: (table: string, id: string) => {
+    _db[table] = (_db[table] || []).filter((x: any) => x.id !== id);
+  },
+};
+
 // Status Badge
 const StatusBadge = ({ status }: { status: string }) => {
   const styles: Record<string, string> = {
@@ -45,25 +98,33 @@ const StatusBadge = ({ status }: { status: string }) => {
   );
 };
 
-// Gemini API call
-const callGeminiAPI = async (apiKey: string | undefined, systemPrompt: string, userContent: string) => {
-  if (!apiKey) {
-    return { async *[Symbol.asyncIterator]() {
-      const fake = `## AI 분석 결과 (데모 모드)\n\n> Gemini API 키가 설정되지 않아 시뮬레이션된 결과입니다.\n\n### 1. 종합 분석\n적합도 **85%**로 평가됩니다.\n\n### 2. 강점\n- 관련 기술 스택 실무 경험 보유\n- 구체적인 성과 수치 입증\n- 관련 자격증 보유\n\n### 3. 개선 필요 사항\n- 대규모 프로젝트 리딩 경험 보충\n- 도메인 지식 강화\n\n### 4. 면접 준비\n**Q1.** 가장 도전적이었던 프로젝트는?\n**Q2.** 기술적 의견 충돌 해결 방법은?\n\n### 5. 최종 제안\n자기소개서에서 **문제 해결 과정**을 STAR 기법으로 재구성하세요.`;
-      for (const word of fake.split(" ")) { yield word + " "; await new Promise(r => setTimeout(r, 30)); }
-    }};
+// ============================================================
+// Gemini API — 서버 API route를 통해 호출 (키는 서버에 보관)
+// ============================================================
+const callGeminiAPI = async (systemPrompt: string, userContent: string) => {
+  const res = await fetch("/api/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ systemPrompt, userContent }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`API 오류 (${res.status}): ${errText.slice(0, 200)}`);
   }
-  const res = await fetch(`/api/generate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ systemPrompt, userContent }) });
-  if (!res.ok) throw new Error(`API Error: ${res.status}`);
+
   const reader = res.body!.getReader();
   const decoder = new TextDecoder();
-  return { async *[Symbol.asyncIterator]() {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      yield decoder.decode(value, { stream: true });
-    }
-  }};
+
+  return {
+    async *[Symbol.asyncIterator]() {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        yield decoder.decode(value, { stream: true });
+      }
+    },
+  };
 };
 
 // ============================================================
@@ -74,37 +135,12 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState("dashboard");
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [, forceUpdate] = useState(0);
+  const rerender = useCallback(() => forceUpdate((n) => n + 1), []);
 
   // ---- AUTH SCREEN ----
   if (!currentUser) {
-    const quickLogin = (email: string) => {
-      const user = mockDB.query("users", (u: any) => u.email === email)[0];
-      if (user) setCurrentUser(user);
-    };
-    return (
-      <div className="min-h-screen bg-[#0a0a1a] overflow-y-auto p-4">
-        <div className="absolute inset-0 pointer-events-none"><div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#6c5ce7]/10 rounded-full blur-3xl"/><div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#a855f7]/10 rounded-full blur-3xl"/></div>
-        <div className="relative z-10 w-full max-w-sm mx-auto pt-12 pb-8">
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-[#6c5ce7] to-[#a855f7] rounded-xl mb-3 shadow-lg shadow-[#6c5ce7]/25"><span className="text-xl font-black text-white">N</span></div>
-            <h1 className="text-2xl font-black text-white tracking-tight">AI Job Navigator <span className="text-[#a855f7]">K</span></h1>
-            <p className="text-gray-400 mt-1 text-xs">AI 기반 맞춤형 취업 컨설팅 플랫폼</p>
-          </div>
-          <div className="bg-[#12122a]/80 backdrop-blur-xl border border-[#2a2a4a] rounded-2xl p-6 shadow-2xl">
-            <p className="text-sm text-gray-300 mb-4 text-center">역할을 선택하여 로그인하세요</p>
-            <div className="space-y-3">
-              <button onClick={() => quickLogin("student@test.com")} className="w-full flex items-center gap-4 bg-gradient-to-r from-[#6c5ce7] to-[#7c6cf7] text-white p-4 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-[#6c5ce7]/20">
-                <span className="text-2xl">🎓</span><div className="text-left"><div className="font-bold">학생으로 로그인</div><div className="text-xs text-white/60">김지원 (student@test.com)</div></div>
-              </button>
-              <button onClick={() => quickLogin("consultant@test.com")} className="w-full flex items-center gap-4 bg-gradient-to-r from-[#a855f7] to-[#c084fc] text-white p-4 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-[#a855f7]/20">
-                <span className="text-2xl">💼</span><div className="text-left"><div className="font-bold">컨설턴트로 로그인</div><div className="text-xs text-white/60">박상현 (consultant@test.com)</div></div>
-              </button>
-            </div>
-            <p className="text-xs text-gray-500 text-center mt-4 pt-4 border-t border-[#2a2a4a]">데모 모드 · 클릭만으로 즉시 로그인</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <LoginScreen onLogin={(user: any) => setCurrentUser(user)} />;
   }
 
   // ---- STUDENT DASHBOARD ----
@@ -151,9 +187,9 @@ export default function Home() {
     const [success, setSuccess] = useState(false);
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault(); setUploading(true);
-      await new Promise(r => setTimeout(r, 1200));
+      await new Promise(r => setTimeout(r, 800));
       mockDB.insert("consulting_requests", { student_id: currentUser.id, target_company: form.target_company, job_description_url_or_text: form.job_description, status: "pending" });
-      setUploading(false); setSuccess(true);
+      setUploading(false); setSuccess(true); rerender();
       setTimeout(() => { setCurrentPage("dashboard"); setSuccess(false); }, 1500);
     };
     if (success) return <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-12 text-center animate-fade-in"><div className="text-4xl mb-3">✅</div><h2 className="text-xl font-bold text-emerald-400">요청이 접수되었습니다!</h2></div>;
@@ -267,7 +303,7 @@ export default function Home() {
       setIsGenerating(true); setAiOutput("");
       const userContent = `[학생] ${student?.full_name}\n[기업] ${request.target_company}\n[채용공고]\n${request.job_description_url_or_text}\n${docs.map((d: any) => `[${d.document_type}]\n${d.parsed_text}`).join("\n")}`;
       try {
-        const stream = await callGeminiAPI(process.env.NEXT_PUBLIC_GEMINI_API_KEY, prompt.system_prompt, userContent);
+        const stream = await callGeminiAPI(prompt.system_prompt, userContent);
         let full = "";
         for await (const chunk of stream) { full += chunk; setAiOutput(full); }
       } catch (err: any) { setAiOutput(`오류: ${err.message}`); }
@@ -278,7 +314,7 @@ export default function Home() {
       if (existingResult) mockDB.update("results", existingResult.id, { final_content: aiOutput, updated_at: new Date().toISOString() });
       else mockDB.insert("results", { request_id: selectedRequestId, ai_draft: aiOutput, final_content: aiOutput, updated_at: new Date().toISOString() });
       mockDB.update("consulting_requests", selectedRequestId!, { status: "completed" });
-      setSaved(true); setTimeout(() => setSaved(false), 2000);
+      setSaved(true); rerender(); setTimeout(() => setSaved(false), 2000);
     };
 
     if (!request) return <div className="text-center py-20 text-gray-500"><button onClick={() => setCurrentPage("dashboard")} className="text-[#a78bfa] hover:underline">← 요청을 선택해주세요</button></div>;
@@ -290,7 +326,6 @@ export default function Home() {
           <StatusBadge status={request.status}/>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Left - Data */}
           <div className="bg-[#12122a] border border-[#2a2a4a] rounded-2xl overflow-hidden">
             <div className="px-4 py-3 border-b border-[#2a2a4a] text-sm font-semibold text-white">📂 학생 데이터</div>
             <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
@@ -300,7 +335,6 @@ export default function Home() {
               ))}
             </div>
           </div>
-          {/* Right - AI */}
           <div className="bg-[#12122a] border border-[#2a2a4a] rounded-2xl overflow-hidden flex flex-col">
             <div className="px-4 py-3 border-b border-[#2a2a4a] text-sm font-semibold text-white">✨ AI 워크스페이스</div>
             <div className="px-4 py-3 border-b border-[#2a2a4a] flex items-center gap-2">
@@ -317,7 +351,6 @@ export default function Home() {
               <button onClick={handleSave} disabled={!aiOutput} className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700 disabled:opacity-40">
                 {saved ? <><Icons.Check/> 저장완료!</> : <><Icons.Send/> 최종 저장</>}
               </button>
-              <button disabled={!aiOutput} className="flex items-center gap-1.5 border border-[#2a2a4a] text-gray-300 px-3 py-2 rounded-lg text-sm hover:bg-[#2a2a4a]/50 disabled:opacity-40"><Icons.Google/> Docs 내보내기</button>
             </div>
           </div>
         </div>
@@ -379,7 +412,6 @@ export default function Home() {
       <div className="space-y-6 animate-fade-in">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <h1 className="text-2xl font-black text-white">통계 대시보드</h1>
-          <button className="flex items-center gap-2 border border-[#2a2a4a] text-gray-300 px-4 py-2 rounded-xl text-sm hover:bg-[#2a2a4a]/50"><Icons.Google/> Sheets 내보내기</button>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-[#12122a] border border-[#2a2a4a] rounded-2xl p-6">
@@ -415,15 +447,10 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#0a0a1a] flex">
-      {/* Mobile Menu Button */}
       <button onClick={() => setSidebarOpen(!sidebarOpen)} className="fixed top-4 left-4 z-50 lg:hidden bg-[#12122a] border border-[#2a2a4a] p-2 rounded-xl text-white">
         {sidebarOpen ? <Icons.X/> : <Icons.Menu/>}
       </button>
-
-      {/* Sidebar Overlay */}
       {sidebarOpen && <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setSidebarOpen(false)}/>}
-
-      {/* Sidebar */}
       <aside className={`fixed h-full z-40 w-60 bg-[#0f0f23] border-r border-[#1a1a3a] flex flex-col transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}>
         <div className="px-5 py-5 border-b border-[#1a1a3a]">
           <div className="flex items-center gap-3">
@@ -440,14 +467,99 @@ export default function Home() {
         </nav>
         <div className="px-3 py-4 border-t border-[#1a1a3a] space-y-1">
           <div className="flex items-center gap-3 px-3 py-2"><div className="w-7 h-7 bg-[#6c5ce7]/20 rounded-lg flex items-center justify-center text-[#a78bfa]"><Icons.User/></div><div><p className="text-xs text-white font-medium truncate">{currentUser.full_name}</p><p className="text-xs text-gray-500 truncate">{currentUser.email}</p></div></div>
-          <button onClick={() => setCurrentUser(null)} className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-gray-400 hover:text-red-400 hover:bg-red-500/10"><Icons.Logout/> 로그아웃</button>
+          <button onClick={() => { setCurrentUser(null); setCurrentPage("dashboard"); }} className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-gray-400 hover:text-red-400 hover:bg-red-500/10"><Icons.Logout/> 로그아웃</button>
         </div>
       </aside>
-
-      {/* Main Content */}
       <main className="flex-1 lg:ml-60 p-4 md:p-6 lg:p-8 pt-16 lg:pt-8">
         {renderPage()}
       </main>
+    </div>
+  );
+}
+
+// ============================================================
+// LOGIN SCREEN — 누구나 로그인 가능
+// ============================================================
+function LoginScreen({ onLogin }: { onLogin: (user: any) => void }) {
+  const [mode, setMode] = useState<"select" | "form">("select");
+  const [form, setForm] = useState({ full_name: "", email: "", role: "student" as "student" | "consultant" });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.full_name.trim() || !form.email.trim()) return;
+    let user = mockDB.query("users", (u: any) => u.email === form.email.trim())[0];
+    if (!user) {
+      user = mockDB.insert("users", { full_name: form.full_name.trim(), email: form.email.trim(), role: form.role });
+    }
+    onLogin(user);
+  };
+
+  const quickLogin = (email: string) => {
+    const user = mockDB.query("users", (u: any) => u.email === email)[0];
+    if (user) onLogin(user);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0a0a1a] overflow-y-auto p-4">
+      <div className="absolute inset-0 pointer-events-none"><div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#6c5ce7]/10 rounded-full blur-3xl"/><div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#a855f7]/10 rounded-full blur-3xl"/></div>
+      <div className="relative z-10 w-full max-w-sm mx-auto pt-12 pb-8">
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-[#6c5ce7] to-[#a855f7] rounded-xl mb-3 shadow-lg shadow-[#6c5ce7]/25"><span className="text-xl font-black text-white">N</span></div>
+          <h1 className="text-2xl font-black text-white tracking-tight">AI Job Navigator <span className="text-[#a855f7]">K</span></h1>
+          <p className="text-gray-400 mt-1 text-xs">AI 기반 맞춤형 취업 컨설팅 플랫폼</p>
+        </div>
+        <div className="bg-[#12122a]/80 backdrop-blur-xl border border-[#2a2a4a] rounded-2xl p-6 shadow-2xl">
+          {mode === "select" ? (
+            <>
+              <p className="text-sm text-gray-300 mb-4 text-center">로그인 방식을 선택하세요</p>
+              <div className="space-y-3">
+                <button onClick={() => setMode("form")} className="w-full flex items-center gap-4 bg-gradient-to-r from-[#6c5ce7] to-[#7c6cf7] text-white p-4 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-[#6c5ce7]/20">
+                  <span className="text-2xl">✍️</span><div className="text-left"><div className="font-bold">회원 로그인</div><div className="text-xs text-white/60">이름, 이메일, 역할을 입력</div></div>
+                </button>
+                <div className="relative flex items-center gap-3 my-2">
+                  <div className="flex-1 h-px bg-[#2a2a4a]"/><span className="text-xs text-gray-500">또는 빠른 체험</span><div className="flex-1 h-px bg-[#2a2a4a]"/>
+                </div>
+                <button onClick={() => quickLogin("student@test.com")} className="w-full flex items-center gap-4 border border-[#2a2a4a] text-white p-3 rounded-xl hover:bg-[#1a1a3a] transition-colors">
+                  <span className="text-xl">🎓</span><div className="text-left"><div className="font-semibold text-sm">학생으로 로그인</div><div className="text-xs text-gray-500">김지원 (student@test.com)</div></div>
+                </button>
+                <button onClick={() => quickLogin("consultant@test.com")} className="w-full flex items-center gap-4 border border-[#2a2a4a] text-white p-3 rounded-xl hover:bg-[#1a1a3a] transition-colors">
+                  <span className="text-xl">💼</span><div className="text-left"><div className="font-semibold text-sm">컨설턴트로 로그인</div><div className="text-xs text-gray-500">박상현 (consultant@test.com)</div></div>
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <button onClick={() => setMode("select")} className="text-gray-400 hover:text-white text-xs mb-3">← 뒤로</button>
+              <p className="text-sm text-gray-300 mb-4">정보를 입력하고 로그인하세요</p>
+              <form onSubmit={handleSubmit} className="space-y-3">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">이름 *</label>
+                  <input type="text" value={form.full_name} onChange={e => setForm({...form, full_name: e.target.value})} className="w-full bg-[#0a0a1a] border border-[#2a2a4a] rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:border-[#6c5ce7] focus:outline-none text-sm" placeholder="홍길동" required/>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">이메일 *</label>
+                  <input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} className="w-full bg-[#0a0a1a] border border-[#2a2a4a] rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:border-[#6c5ce7] focus:outline-none text-sm" placeholder="name@example.com" required/>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">역할 *</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button type="button" onClick={() => setForm({...form, role: "student"})} className={`p-3 rounded-xl border text-sm font-medium transition-all ${form.role === "student" ? "border-[#6c5ce7] bg-[#6c5ce7]/15 text-[#a78bfa]" : "border-[#2a2a4a] text-gray-400 hover:border-[#3a3a5a]"}`}>
+                      🎓 학생
+                    </button>
+                    <button type="button" onClick={() => setForm({...form, role: "consultant"})} className={`p-3 rounded-xl border text-sm font-medium transition-all ${form.role === "consultant" ? "border-[#a855f7] bg-[#a855f7]/15 text-[#c4b5fd]" : "border-[#2a2a4a] text-gray-400 hover:border-[#3a3a5a]"}`}>
+                      💼 컨설턴트
+                    </button>
+                  </div>
+                </div>
+                <button type="submit" className="w-full bg-gradient-to-r from-[#6c5ce7] to-[#a855f7] text-white py-3 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity mt-2">
+                  로그인
+                </button>
+              </form>
+            </>
+          )}
+          <p className="text-xs text-gray-500 text-center mt-4 pt-4 border-t border-[#2a2a4a]">누구나 무료로 이용 가능</p>
+        </div>
+      </div>
     </div>
   );
 }
