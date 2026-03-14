@@ -320,7 +320,7 @@ export default function Home() {
               user_name: currentUser.name,
               document_type: "general",
               title: "생성된 문서",
-              content: fullText,
+              content: aiOutput,
             }),
           });
         } catch (e) {
@@ -337,7 +337,7 @@ export default function Home() {
               user_name: currentUser.name,
               document_type: "general",
               title: "생성된 문서",
-              content: fullText,
+              content: aiOutput,
             }),
           });
         } catch (e) {
@@ -354,7 +354,7 @@ export default function Home() {
               user_name: currentUser.name,
               document_type: "general",
               title: "생성된 문서",
-              content: fullText,
+              content: aiOutput,
             }),
           });
         } catch (e) {
@@ -371,7 +371,7 @@ export default function Home() {
               user_name: currentUser.name,
               document_type: "general",
               title: "생성된 문서",
-              content: fullText,
+              content: aiOutput,
             }),
           });
         } catch (e) {
