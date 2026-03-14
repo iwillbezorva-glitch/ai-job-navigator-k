@@ -318,8 +318,8 @@ export default function Home() {
             body: JSON.stringify({
               user_email: currentUser.email,
               user_name: currentUser.name,
-              document_type: activePrompt?.category || "general",
-              title: activePrompt?.title || "생성된 문서",
+              document_type: "general",
+              title: "생성된 문서",
               content: fullText,
             }),
           });
@@ -335,8 +335,8 @@ export default function Home() {
             body: JSON.stringify({
               user_email: currentUser.email,
               user_name: currentUser.name,
-              document_type: activePrompt?.category || "general",
-              title: activePrompt?.title || "생성된 문서",
+              document_type: "general",
+              title: "생성된 문서",
               content: fullText,
             }),
           });
@@ -352,8 +352,8 @@ export default function Home() {
             body: JSON.stringify({
               user_email: currentUser.email,
               user_name: currentUser.name,
-              document_type: activePrompt?.category || "general",
-              title: activePrompt?.title || "생성된 문서",
+              document_type: "general",
+              title: "생성된 문서",
               content: fullText,
             }),
           });
@@ -369,8 +369,8 @@ export default function Home() {
             body: JSON.stringify({
               user_email: currentUser.email,
               user_name: currentUser.name,
-              document_type: activePrompt?.category || "general",
-              title: activePrompt?.title || "생성된 문서",
+              document_type: "general",
+              title: "생성된 문서",
               content: fullText,
             }),
           });
