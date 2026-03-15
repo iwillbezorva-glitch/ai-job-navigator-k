@@ -552,7 +552,16 @@ export default function Home() {
 function LoginScreen({ onLogin }: { onLogin: (user: any) => void }) {
   const [mode, setMode] = useState<"select" | "form">("select");
   const [form, setForm] = useState({ full_name: "", email: "", role: "student" as "student" | "consultant" });
+const [loading, setLoading] = useState(false);
 
+const handleGoogleLogin = async () => {
+  setLoading(true);
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: `${window.location.origin}/auth/callback` },
+  });
+  if (error) { alert('구글 로그인 실패: ' + error.message); setLoading(false); }
+};
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.full_name.trim() || !form.email.trim()) return;
@@ -582,7 +591,14 @@ function LoginScreen({ onLogin }: { onLogin: (user: any) => void }) {
             <>
               <p className="text-sm text-gray-300 mb-4 text-center">로그인 방식을 선택하세요</p>
               <div className="space-y-3">
-                <button onClick={() => setMode("form")} className="w-full flex items-center gap-4 bg-gradient-to-r from-[#6c5ce7] to-[#7c6cf7] text-white p-4 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-[#6c5ce7]/20">
+<button onClick={handleGoogleLogin} disabled={loading}
+  className="w-full flex items-center gap-4 bg-white text-gray-800 p-4 rounded-xl font-semibold hover:bg-gray-100 transition-colors shadow-lg disabled:opacity-60">
+  <Icons.Google />
+  <div className="text-left">
+    <div className="font-bold">{loading ? '로그인 중...' : '구글로 로그인'}</div>
+    <div className="text-xs text-gray-500">Google 계정으로 바로 시작</div>
+  </div>
+</button>                <button onClick={() => setMode("form")} className="w-full flex items-center gap-4 bg-gradient-to-r from-[#6c5ce7] to-[#7c6cf7] text-white p-4 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-[#6c5ce7]/20">
                   <span className="text-2xl">✍️</span><div className="text-left"><div className="font-bold">회원 로그인</div><div className="text-xs text-white/60">이름, 이메일, 역할을 입력</div></div>
                 </button>
                 <div className="relative flex items-center gap-3 my-2">
