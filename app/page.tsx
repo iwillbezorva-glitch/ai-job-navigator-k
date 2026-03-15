@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-
 // ============================================================
 // ICONS
 // ============================================================
@@ -138,7 +137,33 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [, forceUpdate] = useState(0);
   const rerender = useCallback(() => forceUpdate((n) => n + 1), []);
+useEffect(() => {
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session?.user) {
+      setCurrentUser({
+        id: session.user.id,
+        email: session.user.email,
+        full_name: session.user.user_metadata?.full_name || session.user.email,
+        role: 'student',
+      });
+    }
+  });
 
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    if (session?.user) {
+      setCurrentUser({
+        id: session.user.id,
+        email: session.user.email,
+        full_name: session.user.user_metadata?.full_name || session.user.email,
+        role: 'student',
+      });
+    } else {
+      setCurrentUser(null);
+    }
+  });
+
+  return () => subscription.unsubscribe();
+}, []);
   // ---- AUTH SCREEN ----
   if (!currentUser) {
     return <LoginScreen onLogin={(user: any) => setCurrentUser(user)} />;
