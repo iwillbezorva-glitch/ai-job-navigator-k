@@ -137,33 +137,7 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [, forceUpdate] = useState(0);
   const rerender = useCallback(() => forceUpdate((n) => n + 1), []);
-useEffect(() => {
-  supabase.auth.getSession().then(({ data: { session } }) => {
-    if (session?.user) {
-      setCurrentUser({
-        id: session.user.id,
-        email: session.user.email,
-        full_name: session.user.user_metadata?.full_name || session.user.email,
-        role: 'student',
-      });
-    }
-  });
 
-  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-    if (session?.user) {
-      setCurrentUser({
-        id: session.user.id,
-        email: session.user.email,
-        full_name: session.user.user_metadata?.full_name || session.user.email,
-        role: 'student',
-      });
-    } else {
-      setCurrentUser(null);
-    }
-  });
-
-  return () => subscription.unsubscribe();
-}, []);
   // ---- AUTH SCREEN ----
   if (!currentUser) {
     return <LoginScreen onLogin={(user: any) => setCurrentUser(user)} />;
@@ -575,28 +549,26 @@ useEffect(() => {
 // LOGIN SCREEN — 누구나 로그인 가능
 // ============================================================
 function LoginScreen({ onLogin }: { onLogin: (user: any) => void }) {
-  const [mode, setMode] = useState<"role" | "select" | "form">("role");
-  const [selectedRole, setSelectedRole] = useState<"student" | "consultant" | null>(null);
+  const [mode, setMode] = useState<"select" | "form">("select");
   const [form, setForm] = useState({ full_name: "", email: "", role: "student" as "student" | "consultant" });
-  const [loading, setLoading] = useState(false);
+const [loading, setLoading] = useState(false);
 
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
-    if (error) { alert('구글 로그인 실패: ' + error.message); setLoading(false); }
-  };
-
+const handleGoogleLogin = async () => {
+  setLoading(true);
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: `${window.location.origin}/auth/callback` },
+  });
+  if (error) { alert('구글 로그인 실패: ' + error.message); setLoading(false); }
+};
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.full_name.trim() || !form.email.trim()) return;
     let user = mockDB.query("users", (u: any) => u.email === form.email.trim())[0];
     if (!user) {
-      user = mockDB.insert("users", { full_name: form.full_name.trim(), email: form.email.trim(), role: selectedRole || form.role });
+      user = mockDB.insert("users", { full_name: form.full_name.trim(), email: form.email.trim(), role: form.role });
     }
-    onLogin({ ...user, role: selectedRole || user.role });
+    onLogin(user);
   };
 
   const quickLogin = (email: string) => {
@@ -604,105 +576,38 @@ function LoginScreen({ onLogin }: { onLogin: (user: any) => void }) {
     if (user) onLogin(user);
   };
 
-  // 1단계: 역할 선택
-  if (mode === "role") {
-    return (
-      <div className="min-h-screen bg-[#0a0a1a] overflow-y-auto p-4">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#6c5ce7]/10 rounded-full blur-3xl"/>
-          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#a855f7]/10 rounded-full blur-3xl"/>
-        </div>
-        <div className="relative z-10 w-full max-w-sm mx-auto pt-12 pb-8">
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-[#6c5ce7] to-[#a855f7] rounded-xl mb-3 shadow-lg shadow-[#6c5ce7]/25">
-              <span className="text-xl font-black text-white">N</span>
-            </div>
-            <h1 className="text-2xl font-black text-white tracking-tight">AI Job Navigator <span className="text-[#a855f7]">K</span></h1>
-            <p className="text-gray-400 mt-1 text-xs">AI 기반 맞춤형 취업 컨설팅 플랫폼</p>
-          </div>
-          <div className="bg-[#12122a]/80 backdrop-blur-xl border border-[#2a2a4a] rounded-2xl p-6 shadow-2xl">
-            <p className="text-sm text-gray-300 mb-4 text-center font-semibold">어떤 역할로 시작하시겠어요?</p>
-            <div className="space-y-3">
-              <button onClick={() => { setSelectedRole('student'); setMode('select'); }}
-                className="w-full flex items-center gap-4 border border-[#2a2a4a] text-white p-4 rounded-xl hover:bg-[#6c5ce7]/10 hover:border-[#6c5ce7]/50 transition-colors">
-                <span className="text-2xl">🎓</span>
-                <div className="text-left">
-                  <div className="font-bold">학생</div>
-                  <div className="text-xs text-gray-500">취업 컨설팅을 받고 싶어요</div>
-                </div>
-              </button>
-              <button onClick={() => { setSelectedRole('consultant'); setMode('select'); }}
-                className="w-full flex items-center gap-4 border border-[#2a2a4a] text-white p-4 rounded-xl hover:bg-[#a855f7]/10 hover:border-[#a855f7]/50 transition-colors">
-                <span className="text-2xl">💼</span>
-                <div className="text-left">
-                  <div className="font-bold">컨설턴트</div>
-                  <div className="text-xs text-gray-500">학생들을 컨설팅하고 싶어요</div>
-                </div>
-              </button>
-            </div>
-            <p className="text-xs text-gray-500 text-center mt-4 pt-4 border-t border-[#2a2a4a]">누구나 무료로 이용 가능</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-[#0a0a1a] overflow-y-auto p-4">
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#6c5ce7]/10 rounded-full blur-3xl"/>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#a855f7]/10 rounded-full blur-3xl"/>
-      </div>
+      <div className="absolute inset-0 pointer-events-none"><div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#6c5ce7]/10 rounded-full blur-3xl"/><div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#a855f7]/10 rounded-full blur-3xl"/></div>
       <div className="relative z-10 w-full max-w-sm mx-auto pt-12 pb-8">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-[#6c5ce7] to-[#a855f7] rounded-xl mb-3 shadow-lg shadow-[#6c5ce7]/25">
-            <span className="text-xl font-black text-white">N</span>
-          </div>
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-[#6c5ce7] to-[#a855f7] rounded-xl mb-3 shadow-lg shadow-[#6c5ce7]/25"><span className="text-xl font-black text-white">N</span></div>
           <h1 className="text-2xl font-black text-white tracking-tight">AI Job Navigator <span className="text-[#a855f7]">K</span></h1>
-          <p className="text-gray-400 mt-1 text-xs">
-            {selectedRole === 'student' ? '🎓 학생으로 시작하기' : '💼 컨설턴트로 시작하기'}
-          </p>
+          <p className="text-gray-400 mt-1 text-xs">AI 기반 맞춤형 취업 컨설팅 플랫폼</p>
         </div>
         <div className="bg-[#12122a]/80 backdrop-blur-xl border border-[#2a2a4a] rounded-2xl p-6 shadow-2xl">
           {mode === "select" ? (
             <>
-              <button onClick={() => setMode("role")} className="text-gray-400 hover:text-white text-xs mb-3">← 역할 변경</button>
               <p className="text-sm text-gray-300 mb-4 text-center">로그인 방식을 선택하세요</p>
               <div className="space-y-3">
-                <button onClick={handleGoogleLogin} disabled={loading}
-                  className="w-full flex items-center gap-4 bg-white text-gray-800 p-4 rounded-xl font-semibold hover:bg-gray-100 transition-colors shadow-lg disabled:opacity-60">
-                  <Icons.Google />
-                  <div className="text-left">
-                    <div className="font-bold">{loading ? '로그인 중...' : '구글로 로그인'}</div>
-                    <div className="text-xs text-gray-500">Google 계정으로 바로 시작</div>
-                  </div>
-                </button>
-                <button onClick={() => setMode("form")}
-                  className="w-full flex items-center gap-4 bg-gradient-to-r from-[#6c5ce7] to-[#7c6cf7] text-white p-4 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-[#6c5ce7]/20">
-                  <span className="text-2xl">✍️</span>
-                  <div className="text-left">
-                    <div className="font-bold">이메일로 로그인</div>
-                    <div className="text-xs text-white/60">이름, 이메일을 입력</div>
-                  </div>
+<button onClick={handleGoogleLogin} disabled={loading}
+  className="w-full flex items-center gap-4 bg-white text-gray-800 p-4 rounded-xl font-semibold hover:bg-gray-100 transition-colors shadow-lg disabled:opacity-60">
+  <Icons.Google />
+  <div className="text-left">
+    <div className="font-bold">{loading ? '로그인 중...' : '구글로 로그인'}</div>
+    <div className="text-xs text-gray-500">Google 계정으로 바로 시작</div>
+  </div>
+</button>                <button onClick={() => setMode("form")} className="w-full flex items-center gap-4 bg-gradient-to-r from-[#6c5ce7] to-[#7c6cf7] text-white p-4 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-[#6c5ce7]/20">
+                  <span className="text-2xl">✍️</span><div className="text-left"><div className="font-bold">회원 로그인</div><div className="text-xs text-white/60">이름, 이메일, 역할을 입력</div></div>
                 </button>
                 <div className="relative flex items-center gap-3 my-2">
-                  <div className="flex-1 h-px bg-[#2a2a4a]"/>
-                  <span className="text-xs text-gray-500">또는 빠른 체험</span>
-                  <div className="flex-1 h-px bg-[#2a2a4a]"/>
+                  <div className="flex-1 h-px bg-[#2a2a4a]"/><span className="text-xs text-gray-500">또는 빠른 체험</span><div className="flex-1 h-px bg-[#2a2a4a]"/>
                 </div>
                 <button onClick={() => quickLogin("student@test.com")} className="w-full flex items-center gap-4 border border-[#2a2a4a] text-white p-3 rounded-xl hover:bg-[#1a1a3a] transition-colors">
-                  <span className="text-xl">🎓</span>
-                  <div className="text-left">
-                    <div className="font-semibold text-sm">학생으로 로그인</div>
-                    <div className="text-xs text-gray-500">김지원 (student@test.com)</div>
-                  </div>
+                  <span className="text-xl">🎓</span><div className="text-left"><div className="font-semibold text-sm">학생으로 로그인</div><div className="text-xs text-gray-500">김지원 (student@test.com)</div></div>
                 </button>
                 <button onClick={() => quickLogin("consultant@test.com")} className="w-full flex items-center gap-4 border border-[#2a2a4a] text-white p-3 rounded-xl hover:bg-[#1a1a3a] transition-colors">
-                  <span className="text-xl">💼</span>
-                  <div className="text-left">
-                    <div className="font-semibold text-sm">컨설턴트로 로그인</div>
-                    <div className="text-xs text-gray-500">박상현 (consultant@test.com)</div>
-                  </div>
+                  <span className="text-xl">💼</span><div className="text-left"><div className="font-semibold text-sm">컨설턴트로 로그인</div><div className="text-xs text-gray-500">박상현 (consultant@test.com)</div></div>
                 </button>
               </div>
             </>
@@ -719,7 +624,20 @@ function LoginScreen({ onLogin }: { onLogin: (user: any) => void }) {
                   <label className="text-xs text-gray-400 mb-1 block">이메일 *</label>
                   <input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} className="w-full bg-[#0a0a1a] border border-[#2a2a4a] rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:border-[#6c5ce7] focus:outline-none text-sm" placeholder="name@example.com" required/>
                 </div>
-                <button type="submit" className="w-full bg-gradient-to-r from-[#6c5ce7] to-[#a855f7] text-white py-3 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity mt-2">로그인</button>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">역할 *</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button type="button" onClick={() => setForm({...form, role: "student"})} className={`p-3 rounded-xl border text-sm font-medium transition-all ${form.role === "student" ? "border-[#6c5ce7] bg-[#6c5ce7]/15 text-[#a78bfa]" : "border-[#2a2a4a] text-gray-400 hover:border-[#3a3a5a]"}`}>
+                      🎓 학생
+                    </button>
+                    <button type="button" onClick={() => setForm({...form, role: "consultant"})} className={`p-3 rounded-xl border text-sm font-medium transition-all ${form.role === "consultant" ? "border-[#a855f7] bg-[#a855f7]/15 text-[#c4b5fd]" : "border-[#2a2a4a] text-gray-400 hover:border-[#3a3a5a]"}`}>
+                      💼 컨설턴트
+                    </button>
+                  </div>
+                </div>
+                <button type="submit" className="w-full bg-gradient-to-r from-[#6c5ce7] to-[#a855f7] text-white py-3 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity mt-2">
+                  로그인
+                </button>
               </form>
             </>
           )}
@@ -729,3 +647,7 @@ function LoginScreen({ onLogin }: { onLogin: (user: any) => void }) {
     </div>
   );
 }
+
+
+
+
